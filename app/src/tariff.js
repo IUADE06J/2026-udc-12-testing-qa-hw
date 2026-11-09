@@ -81,7 +81,8 @@ function chargeFor(minutes, bike) {
 }
 
 function subscriptionCharge(minutes, bike) {
-  const charge = blocks(Math.max(0, minutes - SUBSCRIPTION_FREE_MINUTES)) * RATES[bike];
+  const billableMinutes = bike === "ebike" ? minutes : Math.max(0, minutes - SUBSCRIPTION_FREE_MINUTES);
+  const charge = blocks(billableMinutes) * RATES[bike];
   return bike === "ebike" ? charge - discount(charge, SUBSCRIPTION_EBIKE_PERCENT) : charge;
 }
 
