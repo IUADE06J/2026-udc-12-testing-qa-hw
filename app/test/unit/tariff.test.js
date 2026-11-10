@@ -34,9 +34,12 @@ test("e-bikes are billed at the e-bike rate", () => {
   assert.equal(result.total, result.timeCharge);
 });
 
-test("subscribers: classic first 45 min free, e-bike has no free minutes (T4)", () => {
+test("subscribers: a classic ride keeps the first 45 minutes free (T4)", () => {
   const classic = quote(ride("2026-09-16T07:00:00Z", "2026-09-16T07:40:00Z"), { type: "subscriber" });
   assert.equal(classic.total, 0);
+});
+
+test("subscribers: an e-bike ride has no free minutes and pays 20 % less than T3 (T4)", () => {
   const ebike = quote(ride("2026-09-16T07:00:00Z", "2026-09-16T07:40:00Z", { bike: "ebike" }), { type: "subscriber" });
   // T4: для електровелосипеда безкоштовних хвилин немає → ceil(40/30)=2 блоки × 4000 = 8000; −20% → 6400
   assert.equal(ebike.total, 6400);

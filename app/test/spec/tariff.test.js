@@ -36,26 +36,26 @@ const dayCapWith = (preCharged = 0) => {
   };
 };
 
+const expectLines = (actual, expected, label) => {
+  // The length check rejects an extra entry whose amount is already covered by
+  // one of the expected entries; `some(...)` alone would let it pass.
+  assert.equal(actual.length, expected.length, `${label} count`);
+  for (const e of expected) {
+    assert.ok(
+      actual.some((x) => x.code === e.code && x.amount === e.amount),
+      `missing ${label} ${e.code} ${e.amount}`,
+    );
+  }
+};
+
 const expectQuote = (result, expected) => {
   assert.equal(result.minutes, expected.minutes, "minutes");
   assert.equal(result.timeCharge, expected.timeCharge, "timeCharge");
   assert.equal(result.total, expected.total, "total");
-  if (expected.discounts) {
-    for (const d of expected.discounts) {
-      assert.ok(
-        result.discounts.some((x) => x.code === d.code && x.amount === d.amount),
-        `missing discount ${d.code} ${d.amount}`,
-      );
-    }
-  }
-  if (expected.fees) {
-    for (const f of expected.fees) {
-      assert.ok(
-        result.fees.some((x) => x.code === f.code && x.amount === f.amount),
-        `missing fee ${f.code} ${f.amount}`,
-      );
-    }
-  }
+  // An omitted list means "none expected" — every scenario asserts the absence
+  // of unexpected discounts and fees, not only the presence of the listed ones.
+  expectLines(result.discounts, expected.discounts ?? [], "discount");
+  expectLines(result.fees, expected.fees ?? [], "fee");
 };
 
 // ---------------------------------------------------------------------------
