@@ -61,6 +61,10 @@ const expectQuote = (result, expected) => {
 // ---------------------------------------------------------------------------
 // T1 / T2 — тривалість поїздки і хибний старт
 // ---------------------------------------------------------------------------
+// TC-02 and TC-04 are an intentional duplicate: T1's rounding and T2's paid
+// start both need the same 121 s (3 min) input at the boundary. The recorded
+// run `ai-runs/b2-run.txt` (and BUG-1) cites TC-04 at 121 s, so changing its
+// input would invalidate that evidence.
 const t1t2 = [
   {
     id: "TC-01",
@@ -379,9 +383,22 @@ for (const c of t7t8) {
 // ---------------------------------------------------------------------------
 // T9 — суми та округлення
 // ---------------------------------------------------------------------------
+// T9 rounding is not observable through quote(): every amount quote() passes to
+// discount() is a sum/difference of 2500/4000-kopeck blocks (and a day-cap
+// allowance, itself a multiple of 250), so 20/30/50 % never yield a fraction of
+// a kopeck. This direct test is therefore the only place the floor rounding
+// itself can be checked.
 test("T9: 30 % знижка від 1235 kop округляється вниз → до сплати 864 kop (TC-24)", () => {
   assert.equal(discount(1235, 30), 371);
   assert.equal(1235 - discount(1235, 30), 864);
+});
+
+// Integration check: quote() really applies discount() on its night path.
+test("T9: quote() застосовує discount() для нічної знижки (T10)", () => {
+  const result = quote(ride("2026-09-16T00:30:00+03:00", "2026-09-16T01:00:00+03:00"), standard);
+  assert.equal(result.timeCharge, 2500);
+  assert.deepEqual(result.discounts, [{ code: "night", amount: discount(result.timeCharge, 30) }]);
+  assert.equal(result.total, result.timeCharge - discount(result.timeCharge, 30));
 });
 
 // ---------------------------------------------------------------------------

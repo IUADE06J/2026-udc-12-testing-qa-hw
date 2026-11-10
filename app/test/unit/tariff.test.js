@@ -61,14 +61,19 @@ test("night rides get 30 % off", () => {
   // 01:10–01:40 in Kyiv
   const result = quote(ride("2026-09-15T22:10:00Z", "2026-09-15T22:40:00Z"), standard);
   assert.equal(result.timeCharge, 2500);
-  assert.equal(result.discounts.length, 1);
-  assert.equal(result.discounts[0].code, "night");
-  assert.ok(result.total < result.timeCharge);
+  assert.deepEqual(result.discounts, [{ code: "night", amount: 750 }]);
+  assert.equal(result.total, 1750);
 });
 
 test("a bike kept over a day and left outside the zone pays both fees", () => {
   const result = quote(ride("2026-09-16T07:00:00Z", "2026-09-18T07:00:00Z", { returnStation: "X03" }), standard);
-  assert.equal(result.fees.length, 2);
+  assert.deepEqual(result.fees, [
+    { code: "out-of-zone", amount: 15000 },
+    { code: "unreturned", amount: 200000 },
+  ]);
+  // 48 h classic = 96 blocks × 2500 = 240000; T6 caps the time charge at 30000;
+  // fees 15000 + 200000 → total 245000.
+  assert.equal(result.total, 245000);
 });
 
 test("the daily cap limits the time charge", () => {
@@ -102,14 +107,17 @@ test("a non-object ride is rejected with 'ride is required'", () => {
   assert.throws(() => quote("not a ride", standard), /ride is required/);
 });
 
-test("an invalid rider type is rejected", () => {
-  assert.throws(() => quote(ride("2026-09-16T10:00:00Z", "2026-09-16T10:10:00Z"), { type: "bogus" }), QuoteError);
+test("an invalid rider type is rejected with 'unknown rider type'", () => {
+  assert.throws(
+    () => quote(ride("2026-09-16T10:00:00Z", "2026-09-16T10:10:00Z"), { type: "bogus" }),
+    /unknown rider type: bogus/,
+  );
 });
 
 test("a non-ISO pickupAt string is rejected with the ISO message", () => {
   assert.throws(
-    () => quote({ ...ride("not-a-date", "2026-09-16T10:10:00Z"), pickupAt: "not-a-date" }, standard),
-    /must be an ISO 8601/,
+    () => quote(ride("not-a-date", "2026-09-16T10:10:00Z"), standard),
+    /pickupAt must be an ISO 8601/,
   );
 });
 
@@ -118,13 +126,15 @@ test("a ride of exactly 24 h = 1440 min does NOT pay the unreturned fee", () => 
   const result = quote(ride("2026-09-16T10:00:00Z", "2026-09-17T10:00:00Z"), standard);
   assert.equal(result.minutes, 1440);
   assert.equal(result.total, DAY_CAP);
-  assert.ok(!result.fees.some((f) => f.code === "unreturned"));
+  assert.deepEqual(result.fees, []);
+  // 1440 min = 48 blocks × 2500 = 120000 kop; T6 caps the time charge at 30000.
+  assert.deepEqual(result.discounts, [{ code: "day-cap", amount: 90000 }]);
 });
 
 test("a ride of 24 h 1 min = 1441 min pays the unreturned fee", () => {
   const result = quote(ride("2026-09-16T10:00:00Z", "2026-09-17T10:01:00Z"), standard);
   assert.equal(result.minutes, 1441);
-  assert.ok(result.fees.some((f) => f.code === "unreturned"));
+  assert.deepEqual(result.fees, [{ code: "unreturned", amount: 200000 }]);
   assert.equal(result.total, DAY_CAP + 200000);
 });
 
@@ -140,7 +150,8 @@ test("a ride whose due equals the day-cap allowance gets no day-cap discount", (
   assert.equal(result.minutes, 360);
   assert.equal(result.timeCharge, DAY_CAP);
   assert.equal(result.total, DAY_CAP);
-  assert.equal(result.discounts.length, 0);
+  assert.deepEqual(result.discounts, []);
+  assert.deepEqual(result.fees, []);
 });
 
 // Boundary: the night discount applies only when something is still due.
@@ -148,8 +159,8 @@ test("a night ride that is already free gets no night discount entry", () => {
   // Kyiv 01:10 (night), subscriber classic 40 min → subscription covers all, due = 0
   const result = quote(ride("2026-09-15T22:10:00Z", "2026-09-15T22:50:00Z"), { type: "subscriber" });
   assert.equal(result.total, 0);
-  assert.equal(result.discounts.length, 1);
-  assert.equal(result.discounts[0].code, "subscription");
+  assert.deepEqual(result.discounts, [{ code: "subscription", amount: 5000 }]);
+  assert.deepEqual(result.fees, []);
 });
 
 // Boundary: one millisecond over a block boundary still rounds up to the next minute.
