@@ -3,16 +3,24 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { formatReceipt } from "../../src/receipt.js";
 import { quote } from "../../src/tariff.js";
-import { randomRider, randomRides } from "../helpers/factory.js";
+import { randomRide, randomRider, randomRides } from "../helpers/factory.js";
 
 const PRICE = { classic: 2500, ebike: 4000 };
 const uah = (kopecks) => `${(kopecks / 100).toFixed(2).replace(".", ",")} грн`;
 
 test("every receipt of a week of rides ends with the amount due", () => {
   const rider = randomRider();
-  for (const ride of randomRides(10)) {
+  // Boundaries of T3: exactly 30 min is one block (spec: TC-07), so rides of exactly
+  // multiple-of-30 minutes used to flake when the random picks happened to hit them.
+  const boundaryRide = (returnAt) =>
+    randomRide({ pickupAt: "2026-09-21T09:00:00Z", returnAt });
+  for (const ride of [
+    ...randomRides(10),
+    boundaryRide("2026-09-21T09:30:00Z"), // 30 хв → 1 блок
+    boundaryRide("2026-09-21T10:00:00Z"), // 60 хв → 2 блоки
+  ]) {
     const minutes = (Date.parse(ride.returnAt) - Date.parse(ride.pickupAt)) / 60_000;
-    const expected = (Math.floor(minutes / 30) + 1) * PRICE[ride.bike];
+    const expected = Math.ceil(minutes / 30) * PRICE[ride.bike];
 
     const lines = formatReceipt(quote(ride, rider));
 
