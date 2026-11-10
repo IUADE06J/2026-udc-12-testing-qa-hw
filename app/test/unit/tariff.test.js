@@ -23,7 +23,7 @@ test("quote returns an itemised price", () => {
 
 test("a ride of 30 min 20 s is billed as 31 minutes → 2 blocks (T1)", () => {
   const result = quote(ride("2026-09-16T07:00:00Z", "2026-09-16T07:30:20Z"), standard);
-  // T1: неполна хвилина рахується як повна → 30 хв 20 с = 31 хв → ceil(31/30)=2 блоки → 50 грн
+  // T1: неповна хвилина рахується як повна → 30 хв 20 с = 31 хв → ceil(31/30)=2 блоки → 50 грн
   assert.equal(result.minutes, 31);
   assert.equal(result.timeCharge, 5000);
 });
@@ -38,7 +38,7 @@ test("subscribers: classic first 45 min free, e-bike has no free minutes (T4)", 
   const classic = quote(ride("2026-09-16T07:00:00Z", "2026-09-16T07:40:00Z"), { type: "subscriber" });
   assert.equal(classic.total, 0);
   const ebike = quote(ride("2026-09-16T07:00:00Z", "2026-09-16T07:40:00Z", { bike: "ebike" }), { type: "subscriber" });
-  // T4: для електровелосипеда безкошотних хвилин немає → ceil(40/30)=2 блоки × 4000 = 8000; −20% → 6400
+  // T4: для електровелосипеда безкоштовних хвилин немає → ceil(40/30)=2 блоки × 4000 = 8000; −20% → 6400
   assert.equal(ebike.total, 6400);
 });
 
