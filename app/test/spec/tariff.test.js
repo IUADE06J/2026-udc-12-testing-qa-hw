@@ -397,8 +397,8 @@ test("T9: 30 % знижка від 1235 kop округляється вниз �
 test("T9: quote() застосовує discount() для нічної знижки (T10)", () => {
   const result = quote(ride("2026-09-16T00:30:00+03:00", "2026-09-16T01:00:00+03:00"), standard);
   assert.equal(result.timeCharge, 2500);
-  assert.deepEqual(result.discounts, [{ code: "night", amount: discount(result.timeCharge, 30) }]);
-  assert.equal(result.total, result.timeCharge - discount(result.timeCharge, 30));
+  assert.deepEqual(result.discounts, [{ code: "night", amount: 750 }]);
+  assert.equal(result.total, 1750);
 });
 
 // ---------------------------------------------------------------------------

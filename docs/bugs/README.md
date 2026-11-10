@@ -42,6 +42,41 @@
 | `app/test/unit/tariff.test.js` › `a ride of 30 min 20 s is billed as one block` | `minutes = 30`, `timeCharge = 2500` (хибне округлення `Math.round`) | T1: «Неповна хвилина рахується як повна: тривалість округлюється вгору до цілих хвилин» (рядки 46–47) → 30 хв 20 с = 31 хв → `ceil(31/30)=2` блоки → 5000 kop | Перейменовано на `…billed as 31 minutes → 2 blocks (T1)`; очікування `minutes = 31`, `timeCharge = 5000` |
 | `app/test/unit/tariff.test.js` › `subscribers ride the first 45 minutes free` | `total = 0` для класичного і електровелосипеда | T4: «Електровелосипед: знижка 20 % на погодинне нарахування за T3. Безкоштовних хвилин на електровелосипеді немає» (рядки 76–77) → для ebike 40 хв = `ceil(40/30)=2` блоки × 4000 − 20% = 6400 kop | Розділено на класичний (`total = 0`) та електровелосипед (`total = 6400`); назва уточнена |
 
+## Повний перелік змін в unit-тестах
+
+Нижче — усі зміни в `app/test/unit/` відносно початкового стану `4606c72`, включно
+з двома тестами з попередньої таблиці. Інші unit-файли (`receipt-format.test.js`,
+`server.test.js`) не змінювалися.
+
+### Змінені наявні тести
+
+| Тест (файл › назва) | Що було | Що стало | Причина зміни |
+|---|---|---|---|
+| `app/test/unit/tariff.test.js` › `a ride of 30 min 20 s is billed as 31 minutes → 2 blocks (T1)` | `minutes = 30`, `timeCharge = 2500` (старе `Math.round`) | `minutes = 31`, `timeCharge = 5000` | BUG-1: T1 вимагає округлення вгору; тест приведено до специфікації після `dcdd76b` (коміт тесту `02f1a89`) |
+| `app/test/unit/tariff.test.js` › `subscribers: a classic ride keeps the first 45 minutes free (T4)` (був `subscribers ride the first 45 minutes free`) | один тест перевіряв classic і ebike, для обох `total = 0` | classic — `total = 0`; ebike — окремий тест `subscribers: an e-bike ride has no free minutes and pays 20 % less than T3 (T4)` з `total = 6400` | BUG-3: T4 не дає безкоштовних хвилин для ebike; тест розділено, щоб не змішувати два випадки (`3f92d26`, `02f1a89`, `1c7699f`) |
+| `app/test/unit/tariff.test.js` › `night rides get 30 % off` | перевірялися `discounts.length`, код знижки та `total < timeCharge` | точні `discounts = [{ code: "night", amount: 750 }]`, `total = 1750` | Посилення слабкої асерції за T10: 30 % від 2500 = 750, до сплати 1750; поведінка не змінилася (`50e0bdb`) |
+| `app/test/unit/tariff.test.js` › `a bike kept over a day and left outside the zone pays both fees` | `fees.length === 2` | точні `fees = [out-of-zone 15000, unreturned 200000]`, `total = 245000` | Посилення перевірки T7+T8 (обидва збори незалежно) замість кількості; та сама поведінка, що перевіряє CI-1152 (`50e0bdb`) |
+
+### Додані unit-тести
+
+| Тест (файл › назва) | Причина додавання |
+|---|---|
+| `app/test/unit/tariff.test.js` › `a zero-minute ride (pickup === return) is allowed and free` | Task C: вбиває M071, фіксує дозволену 0-хв поїздку |
+| `app/test/unit/tariff.test.js` › `a non-object ride is rejected with 'ride is required'` | Task C: вбиває M069, перевіряє некоректний вхід (розділ 4 специфікації) |
+| `app/test/unit/tariff.test.js` › `an invalid rider type is rejected with 'unknown rider type'` | Task C: вбиває M075; у `50e0bdb` уточнено точний текст помилки |
+| `app/test/unit/tariff.test.js` › `a non-ISO pickupAt string is rejected with the ISO message` | Task C: вбиває M080; у `50e0bdb` уточнено вхід і текст помилки |
+| `app/test/unit/tariff.test.js` › `a ride of exactly 24 h = 1440 min does NOT pay the unreturned fee` | Task C: вбиває M067, межа T8; у `50e0bdb` посилено до точних `fees`/`discounts` |
+| `app/test/unit/tariff.test.js` › `a ride of 24 h 1 min = 1441 min pays the unreturned fee` | Task C: вбиває M014, межа T8; у `50e0bdb` посилено до точного збору |
+| `app/test/unit/tariff.test.js` › `a ride whose due equals the day-cap allowance gets no day-cap discount` | Task C: вбиває M023, межа T6; у `50e0bdb` посилено до точних масивів |
+| `app/test/unit/tariff.test.js` › `a night ride that is already free gets no night discount entry` | Task C: вбиває M018, взаємодія T10/T4; у `50e0bdb` посилено до точних масивів |
+| `app/test/unit/tariff.test.js` › `30 min 1 ms is billed as 31 minutes → 2 blocks (T1)` | Task C: вбиває M033, межа T1 |
+| `app/test/unit/tariff.test.js` › `subscribers: an e-bike ride has no free minutes and pays 20 % less than T3 (T4)` | Виділено зі старого тесту `subscribers ride the first 45 minutes free` під час BUG-3; фіксує T4 для ebike (`total = 6400`) |
+| `app/test/unit/day-cap.test.js` › `remaining of a rider with no charges on that day is the full cap` | Task C: вбиває M090 |
+| `app/test/unit/day-cap.test.js` › `chargedOn of a rider with no charges on that day is zero` | Task C: вбиває M090 |
+| `app/test/unit/day-cap.test.js` › `remaining is zero once the rider is charged up to the cap` | Task C: вбиває M085 |
+
+Разом: 4 змінені наявні тести + 13 доданих unit-тестів.
+
 ## Тести з коду після виправлення (`ai-runs/b1-rerun.txt`)
 
 Тести з прогону «з коду», які були зелені на початковому коді й почервоніли на виправленому: вони стверджували саме ту поведінку, яку ви виправили. Перелік порожній — **немає**. `ai-runs/b1-rerun.txt` підтверджує: обидва тести з коду (`day-cap.test.js`, `tariff.test.js`) були червоними ще до виправлень (помилка модуля `require` у ESM-проєкті) і залишились червоними після них (`tests 2, pass 0, fail 2`). Тож жоден тест з коду не «почервонів» через виправлення дефектів коду.
